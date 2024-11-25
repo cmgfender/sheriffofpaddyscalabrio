@@ -8,3 +8,4 @@ document.querySelector('.add-tool').addEventListener('click', () => {
     `;
     toolsSection.insertBefore(newTool, document.querySelector('.add-tool'));
   });
+  
