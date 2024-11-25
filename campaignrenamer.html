@@ -17,7 +17,17 @@
     <a id="downloadLink" style="display: none;" download="processed_campaigns.csv">Download Processed File</a>
 
     <script>
-        // Sub-region mapping with rules
+        /******************** CONFIGURATION SECTION ********************/
+
+        // Region and Sub-region Mapping
+        const REGION_MAP = {
+            "North America": ["us", "canada", "north america"],
+            "APAC": ["apac", "asia"],
+            "LATAM": ["latam", "latin america"],
+            "EMEA": ["emea", "europe", "middle east", "africa"],
+            "Global": []
+        };
+
         const SUB_REGION_MAP = {
             "North America": {
                 "US-Central": ["central"],
@@ -49,7 +59,6 @@
             }
         };
 
-        // Default sub-region for regions
         const DEFAULT_SUB_REGION = {
             "North America": "US-Central",
             "APAC": "APAC-East",
@@ -58,7 +67,21 @@
             "Global": "N/A"
         };
 
-        // Destination mapping
+        // Type Mapping
+        const TYPE_MAP = {
+            "Content Syndication": ["content syndication"],
+            "Direct Inquiry": ["direct inquiry"],
+            "Direct Mail": ["direct mail"],
+            "Email": ["email"],
+            "Paid Social": ["linkedin"],
+            "Conference/Tradeshow": ["conference", "tradeshow"],
+            "Webinar": ["webinar", "wod", "live webinar"],
+            "Dark Funnel": ["6sense"],
+            "Chat": ["drift"],
+            "Hosted Event": ["c3"]
+        };
+
+        // Destination Mapping
         const DESTINATION_MAP = [
             "Madison Logic", "Vereign Media", "Content Syndication (Other)", "Talk to Sales",
             "Book a Demo", "Direct Mail", "Engagement Email", "Nurture Email", "Thought Leadership",
@@ -72,19 +95,7 @@
             "Dark Funnel - Other", "ZoomInfo", "Seamless.ai", "Lusha", "Drift"
         ];
 
-        // Type mapping
-        const TYPE_MAP = {
-            "Content Syndication": ["content syndication"],
-            "Direct Inquiry": ["direct inquiry"],
-            "Direct Mail": ["direct mail"],
-            "Email": ["email"],
-            "Paid Social": ["linkedin"],
-            "Conference/Tradeshow": ["conference", "tradeshow"],
-            "Webinar": ["webinar", "wod", "live webinar"],
-            "Dark Funnel": ["6sense"],
-            "Chat": ["drift"],
-            "Hosted Event": ["c3"]
-        };
+        /******************** PROCESSING FUNCTIONS ********************/
 
         function processCSV() {
             const fileInput = document.getElementById('csvFile');
@@ -131,8 +142,8 @@
             newRow['Start Date'] = formatDate(startDate);
             newRow['End Date'] = formatDate(endDate);
 
-            // Classify Region
-            newRow['Region'] = classifyRegion(row['Campaign Name']);
+            // Classify Region and Sub-region
+            newRow['Region'] = classifyMatch(row['Campaign Name'], REGION_MAP, "Global");
             newRow['Sub-Region'] = classifySubRegion(row['Campaign Name'], newRow['Region']);
 
             // Classify Type
@@ -142,7 +153,7 @@
             newRow['Destination'] = classifyDestination(row['Campaign Name']);
 
             // Create New Campaign Name
-            newRow['New Campaign Name'] = `${newRow['Region']} | ${newRow['Sub-Region'] || ''} | ${newRow['Type']} | ${new Date(newRow['Start Date']).getFullYear()} | ${row['Campaign Name']}`;
+            newRow['New Campaign Name'] = `${newRow['Region']} | ${newRow['Sub-Region']} | ${newRow['Type']} | ${new Date(newRow['Start Date']).getFullYear()} | ${row['Campaign Name']}`;
             
             return newRow;
         }
@@ -168,15 +179,6 @@
             return DEFAULT_SUB_REGION[region] || "N/A";
         }
 
-        function classifyRegion(name) {
-            name = name.toLowerCase();
-            if (name.includes('north america') || name.includes('us') || name.includes('canada')) return 'North America';
-            if (name.includes('apac') || name.includes('asia')) return 'APAC';
-            if (name.includes('latam') || name.includes('latin america')) return 'LATAM';
-            if (name.includes('emea') || name.includes('europe') || name.includes('middle east') || name.includes('africa')) return 'EMEA';
-            return 'Global';
-        }
-
         function classifyDestination(name) {
             name = name.toLowerCase();
             for (const destination of DESTINATION_MAP) {
@@ -193,6 +195,7 @@
             const day = String(date.getDate()).padStart(2, '0');
             return `${year}-${month}-${day}`;
         }
+
     </script>
 </body>
 </html>
