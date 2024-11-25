@@ -17,6 +17,75 @@
     <a id="downloadLink" style="display: none;" download="processed_campaigns.csv">Download Processed File</a>
 
     <script>
+        // Sub-region mapping with rules
+        const SUB_REGION_MAP = {
+            "North America": {
+                "US-Central": ["central"],
+                "US-East": ["east"],
+                "US-West": ["west"],
+                "CA-Central": ["canada central"],
+                "CA-East": ["canada east"],
+                "CA-West": ["canada west"]
+            },
+            "APAC": {
+                "APAC-East": ["east"],
+                "APAC-ANZ": ["australia", "new zealand"],
+                "APAC-Japan": ["japan"],
+                "APAC-Southeast": ["southeast asia"]
+            },
+            "LATAM": {
+                "LATAM-Central": ["central"],
+                "LATAM-South": ["south"]
+            },
+            "EMEA": {
+                "EU-Central": ["central"],
+                "EU-East": ["east"],
+                "EU-West": ["west"],
+                "EU-Nordic": ["nordic"],
+                "ME": ["middle east"],
+                "AF": ["africa"],
+                "UKI-UK": ["uk", "united kingdom"],
+                "UKI-Ireland": ["ireland"]
+            }
+        };
+
+        // Default sub-region for regions
+        const DEFAULT_SUB_REGION = {
+            "North America": "US-Central",
+            "APAC": "APAC-East",
+            "LATAM": "LATAM-Central",
+            "EMEA": "UKI-UK",
+            "Global": "N/A"
+        };
+
+        // Destination mapping
+        const DESTINATION_MAP = [
+            "Madison Logic", "Vereign Media", "Content Syndication (Other)", "Talk to Sales",
+            "Book a Demo", "Direct Mail", "Engagement Email", "Nurture Email", "Thought Leadership",
+            "Sponsored Email", "Email Other", "C3", "Customer Event", "Field Event",
+            "Calabrio Virtual Event", "Operational", "Organic Linkedin", "Organic Facebook",
+            "Organic X (Twitter)", "Organic Reddit", "Organic Other", "Other", "Google", "Bing",
+            "Paid Linkedin", "Paid Facebook", "Paid X (Twitter)", "Paid Reddit", "Paid Other",
+            "Partner Event", "Partner Other", "Paid PR", "Earned PR", "Tradeshow", "Conference",
+            "3rd Party Virtual Event", "Analyst Report", "Whitepaper / Ebook", "Sponsored Report",
+            "Calabrio Research", "Live Webinar", "Webinar On Demand", "6Sense Orchestration",
+            "Dark Funnel - Other", "ZoomInfo", "Seamless.ai", "Lusha", "Drift"
+        ];
+
+        // Type mapping
+        const TYPE_MAP = {
+            "Content Syndication": ["content syndication"],
+            "Direct Inquiry": ["direct inquiry"],
+            "Direct Mail": ["direct mail"],
+            "Email": ["email"],
+            "Paid Social": ["linkedin"],
+            "Conference/Tradeshow": ["conference", "tradeshow"],
+            "Webinar": ["webinar", "wod", "live webinar"],
+            "Dark Funnel": ["6sense"],
+            "Chat": ["drift"],
+            "Hosted Event": ["c3"]
+        };
+
         function processCSV() {
             const fileInput = document.getElementById('csvFile');
             const status = document.getElementById('status');
@@ -66,11 +135,11 @@
             newRow['Region'] = classifyRegion(row['Campaign Name']);
             newRow['Sub-Region'] = classifySubRegion(row['Campaign Name'], newRow['Region']);
 
-            // Classify Product Focus
-            newRow['Product Focus'] = classifyProductFocus(row['Campaign Name']);
-
             // Classify Type
-            newRow['Type'] = classifyType(row['Campaign Name']);
+            newRow['Type'] = classifyMatch(row['Campaign Name'], TYPE_MAP, "Unknown");
+
+            // Classify Destination
+            newRow['Destination'] = classifyDestination(row['Campaign Name']);
 
             // Create New Campaign Name
             newRow['New Campaign Name'] = `${newRow['Region']} | ${newRow['Sub-Region'] || ''} | ${newRow['Type']} | ${new Date(newRow['Start Date']).getFullYear()} | ${row['Campaign Name']}`;
@@ -78,52 +147,51 @@
             return newRow;
         }
 
+        function classifyMatch(name, map, defaultValue) {
+            name = name.toLowerCase();
+            for (const [key, keywords] of Object.entries(map)) {
+                if (keywords.some(keyword => name.includes(keyword))) {
+                    return key;
+                }
+            }
+            return defaultValue;
+        }
+
+        function classifySubRegion(name, region) {
+            name = name.toLowerCase();
+            const subRegions = SUB_REGION_MAP[region] || {};
+            for (const [subRegion, keywords] of Object.entries(subRegions)) {
+                if (keywords.some(keyword => name.includes(keyword))) {
+                    return subRegion;
+                }
+            }
+            return DEFAULT_SUB_REGION[region] || "N/A";
+        }
+
+        function classifyRegion(name) {
+            name = name.toLowerCase();
+            if (name.includes('north america') || name.includes('us') || name.includes('canada')) return 'North America';
+            if (name.includes('apac') || name.includes('asia')) return 'APAC';
+            if (name.includes('latam') || name.includes('latin america')) return 'LATAM';
+            if (name.includes('emea') || name.includes('europe') || name.includes('middle east') || name.includes('africa')) return 'EMEA';
+            return 'Global';
+        }
+
+        function classifyDestination(name) {
+            name = name.toLowerCase();
+            for (const destination of DESTINATION_MAP) {
+                if (name.includes(destination.toLowerCase())) {
+                    return destination;
+                }
+            }
+            return "Other";
+        }
+
         function formatDate(date) {
             const year = date.getFullYear();
             const month = String(date.getMonth() + 1).padStart(2, '0');
             const day = String(date.getDate()).padStart(2, '0');
             return `${year}-${month}-${day}`;
-        }
-
-        function classifyRegion(name) {
-            name = name.toLowerCase();
-            if (name.includes('europe') || name.includes('middle east') || name.includes('africa')) return 'EMEA';
-            if (name.includes('latin america') || name.includes('latam')) return 'LATAM';
-            if (name.includes('asia') || name.includes('apac')) return 'APAC';
-            if (name.includes('us') || name.includes('canada')) return 'North America';
-            return 'Global';
-        }
-
-        function classifySubRegion(name, region) {
-            name = name.toLowerCase();
-            if (region === 'North America') {
-                if (name.includes('central')) return 'US-Central';
-                if (name.includes('east')) return 'US-East';
-                if (name.includes('west')) return 'US-West';
-            } else if (region === 'EMEA') {
-                if (name.includes('uk')) return 'UKI-UK';
-                if (name.includes('ireland')) return 'UKI-Ireland';
-            }
-            return '';
-        }
-
-        function classifyProductFocus(name) {
-            name = name.toLowerCase();
-            if (name.includes('quality management') || name.includes('qm')) return 'QM';
-            if (name.includes('workforce management') || name.includes('wfm')) return 'WFM';
-            if (name.includes('analytics')) return 'Analytics';
-            if (name.includes('call summarization')) return 'Call Summarization';
-            if (name.includes('bot analytics')) return 'Bot Analytics';
-            return 'Suite';
-        }
-
-        function classifyType(name) {
-            name = name.toLowerCase();
-            if (name.includes('linkedin')) return 'Paid Social';
-            if (name.includes('6sense')) return 'Dark Funnel';
-            if (name.includes('drift')) return 'Chat';
-            if (name.includes('webinar') || name.includes('wod')) return 'Webinar';
-            return 'Unknown';
         }
     </script>
 </body>
