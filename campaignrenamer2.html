@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Calabrio Campaign Renamer Alpha</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <style>
+        .config-container {
+            margin-bottom: 20px;
+            padding: 10px;
+            border: 1px solid #ddd;
+        }
+        .config-container h2 {
+            font-size: 1.2em;
+        }
+        .mapping-container {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Calabrio Campaign Renamer Alpha</h1>
+    <p>Upload your CSV file, process it directly in the browser, customize mappings, and download the updated file.</p>
+
+    <form id="csvForm">
+        <input type="file" id="csvFile" accept=".csv" required />
+        <button type="button" onclick="processCSV()">Process File</button>
+    </form>
+
+    <p id="status"></p>
+    <a id="downloadLink" style="display: none;" download="processed_campaigns.csv">Download Processed File</a>
+
+    <!-- Customization Section -->
+    <div id="customizationSection">
+        <div class="config-container" id="regionConfig">
+            <h2>Customize Region Mapping</h2>
+            <div id="regionMappings"></div>
+            <button type="button" onclick="addRegionMapping()">Add Region Mapping</button>
+        </div>
+
+        <div class="config-container" id="subRegionConfig">
+            <h2>Customize Sub-Region Mapping</h2>
+            <div id="subRegionMappings"></div>
+            <button type="button" onclick="addSubRegionMapping()">Add Sub-Region Mapping</button>
+        </div>
+
+        <div class="config-container" id="typeConfig">
+            <h2>Customize Type Mapping</h2>
+            <div id="typeMappings"></div>
+            <button type="button" onclick="addTypeMapping()">Add Type Mapping</button>
+        </div>
+
+        <div class="config-container" id="destinationConfig">
+            <h2>Customize Destination Mapping</h2>
+            <div id="destinationMappings"></div>
+            <button type="button" onclick="addDestinationMapping()">Add Destination Mapping</button>
+        </div>
+
+        <div class="config-container" id="dateConfig">
+            <h2>Customize Start and End Date Rules</h2>
+            <div id="dateMappings"></div>
+            <button type="button" onclick="addDateRule()">Add Date Rule</button>
+        </div>
+
+        <button type="button" onclick="saveCustomMappings()">Save Custom Mappings</button>
+    </div>
+
+    <script>
+        /******************** CONFIGURATION SECTION ********************/
+
+        // Default Mappings
+        let REGION_MAP = {
+            "North America": ["us", "canada", "north america"],
+            "APAC": ["apac", "asia"],
+            "LATAM": ["latam", "latin america"],
+            "EMEA": ["emea", "europe", "middle east", "africa"],
+            "Global": []
+        };
+
+        let SUB_REGION_MAP = {
+            "North America": {
+                "US-Central": ["central"],
+                "US-East": ["east"],
+                "US-West": ["west"],
+                "CA-Central": ["canada central"],
+                "CA-East": ["canada east"],
+                "CA-West": ["canada west"]
+            },
+            "APAC": {
+                "APAC-East": ["east"],
+                "APAC-ANZ": ["australia", "new zealand"],
+                "APAC-Japan": ["japan"],
+                "APAC-Southeast": ["southeast asia"]
+            },
+            "LATAM": {
+                "LATAM-Central": ["central"],
+                "LATAM-South": ["south"]
+            },
+            "EMEA": {
+                "EU-Central": ["central"],
+                "EU-East": ["east"],
+                "EU-West": ["west"],
+                "EU-Nordic": ["nordic"],
+                "ME": ["middle east"],
+                "AF": ["africa"],
+                "UKI-UK": ["uk", "united kingdom"],
+                "UKI-Ireland": ["ireland"]
+            }
+        };
+
+        let TYPE_MAP = {
+            "Content Syndication": ["content syndication"],
+            "Direct Inquiry": ["direct inquiry"],
+            "Direct Mail": ["direct mail"],
+            "Email": ["email"],
+            "Paid Social": ["linkedin"],
+            "Conference/Tradeshow": ["conference", "tradeshow"],
+            "Webinar": ["webinar", "wod", "live webinar"],
+            "Dark Funnel": ["6sense"],
+            "Chat": ["drift"],
+            "Hosted Event": ["c3"]
+        };
+
+        let DESTINATION_MAP = [
+            "Madison Logic", "Vereign Media", "Content Syndication (Other)", "Talk to Sales",
+            "Book a Demo", "Direct Mail", "Engagement Email", "Nurture Email", "Thought Leadership",
+            "Sponsored Email", "Email Other", "C3", "Customer Event", "Field Event",
+            "Calabrio Virtual Event", "Operational", "Organic Linkedin", "Organic Facebook",
+            "Organic X (Twitter)", "Organic Reddit", "Organic Other", "Other", "Google", "Bing",
+            "Paid Linkedin", "Paid Facebook", "Paid X (Twitter)", "Paid Reddit", "Paid Other",
+            "Partner Event", "Partner Other", "Paid PR", "Earned PR", "Tradeshow", "Conference",
+            "3rd Party Virtual Event", "Analyst Report", "Whitepaper / Ebook", "Sponsored Report",
+            "Calabrio Research", "Live Webinar", "Webinar On Demand", "6Sense Orchestration",
+            "Dark Funnel - Other", "ZoomInfo", "Seamless.ai", "Lusha", "Drift"
+        ];
+
+        let DATE_RULES = [
+            { 
+                keyword: "Webinar", 
+                startDate: "2024-01-01", 
+                durationMonths: 6 
+            }
+        ];
+
+        /******************** UI FUNCTIONS FOR CUSTOMIZING MAPPINGS ********************/
+
+        function renderMappings() {
+            renderMappingSection(REGION_MAP, '#regionMappings', 'region');
+            renderMappingSection(TYPE_MAP, '#typeMappings', 'type');
+            renderMappingList(DESTINATION_MAP, '#destinationMappings', 'destination');
+            renderSubRegionMappings();
+            renderDateMappings();
+        }
+
+        function renderMappingSection(map, container, prefix) {
+            const containerElement = $(container);
+            containerElement.html('');
+            for (const [key, values] of Object.entries(map)) {
+                values.forEach((value, index) => {
+                    containerElement.append(`
+                        <div class="mapping-container">
+                            <input type="text" class="${prefix}-key" value="${key}" />
+                            <input type="text" class="${prefix}-value" value="${value}" />
+                            <button type="button" onclick="$(this).parent().remove()">Remove</button>
+                        </div>
+                    `);
+                });
+            }
+        }
+
+        function renderMappingList(list, container, prefix) {
+            const containerElement = $(container);
+            containerElement.html('');
+            list.forEach((value, index) => {
+                containerElement.append(`
+                    <div class="mapping-container">
+                        <input type="text" class="${prefix}-value" value="${value}" />
+                        <button type="button" onclick="$(this).parent().remove()">Remove</button>
+                    </div>
+                `);
+            });
+        }
+
+        function renderSubRegionMappings() {
+            const containerElement = $('#subRegionMappings');
+            containerElement.html('');
+            for (const [region, subRegions] of Object.entries(SUB_REGION_MAP)) {
+                for (const [subRegion, values] of Object.entries(subRegions)) {
+                    values.forEach(value => {
+                        containerElement.append(`
+                            <div class="mapping-container">
+                                <input type="text" class="subregion-region" value="${region}" />
+                                <input type="text" class="subregion-key" value="${subRegion}" />
+                                <input type="text" class="subregion-value" value="${value}" />
+                                <button type="button" onclick="$(this).parent().remove()">Remove</button>
+                            </div>
+                        `);
+                    });
+                }
+            }
+        }
+
+        function renderDateMappings() {
+            const containerElement = $('#dateMappings');
+            containerElement.html('');
+            DATE_RULES.forEach(rule => {
+                containerElement.append(`
+                    <div class="mapping-container">
+                        <input type="text" class="date-keyword" value="${rule.keyword}" placeholder="Keyword" />
+                        <input type="date" class="date-start" value="${rule.startDate}" />
+                        <input type="number" class="date-duration" value="${rule.durationMonths}" placeholder="Duration (months)" />
+                        <button type="button" onclick="$(this).parent().remove()">Remove</button>
+                    </div>
+                `);
+            });
+        }
+
+        function addRegionMapping() {
+            $('#regionMappings').append(`
+                <div class="mapping-container">
+                    <input type="text" class="region-key" placeholder="Region" />
+                    <input type="text" class="region-value" placeholder="Keyword" />
+                    <button type="button" onclick="$(this).parent().remove()">Remove</button>
+                </div>
+            `);
+        }
+
+        function addSubRegionMapping() {
+            $('#subRegionMappings').append(`
+                <div class="mapping-container">
+                    <input type="text" class="subregion-region" placeholder="Region" />
+                    <input type="text" class="subregion-key" placeholder="Sub-Region" />
+                    <input type="text" class="subregion-value" placeholder="Keyword" />
+                    <button type="button" onclick="$(this).parent().remove()">Remove</button>
+                </div>
+            `);
+        }
+
+        function addTypeMapping() {
+            $('#typeMappings').append(`
+                <div class="mapping-container">
+                    <input type="text" class="type-key" placeholder="Type" />
+                    <input type="text" class="type-value" placeholder="Keyword" />
+                    <button type="button" onclick="$(this).parent().remove()">Remove</button>
+                </div>
+            `);
+        }
+
+        function addDestinationMapping() {
+            $('#destinationMappings').append(`
+                <div class="mapping-container">
+                    <input type="text" class="destination-value" placeholder="Destination" />
+                    <button type="button" onclick="$(this).parent().remove()">Remove</button>
+                </div>
+            `);
+        }
+
+        function addDateRule() {
+            $('#dateMappings').append(`
+                <div class="mapping-container">
+                    <input type="text" class="date-keyword" placeholder="Keyword" />
+                    <input type="date" class="date-start" placeholder="Start Date" />
+                    <input type="number" class="date-duration" placeholder="Duration (months)" />
+                    <button type="button" onclick="$(this).parent().remove()">Remove</button>
+                </div>
+            `);
+        }
+
+        function saveCustomMappings() {
+            REGION_MAP = readMappings('.region-key', '.region-value');
+            SUB_REGION_MAP = readSubRegionMappings();
+            TYPE_MAP = readMappings('.type-key', '.type-value');
+            DESTINATION_MAP = readMappingList('.destination-value');
+            DATE_RULES = readDateRules();
+
+            alert("Mappings have been updated!");
+        }
+
+        function readMappings(keySelector, valueSelector) {
+            const map = {};
+            $(keySelector).each((i, elem) => {
+                const key = $(elem).val();
+                const value = $(valueSelector).eq(i).val();
+                if (!map[key]) {
+                    map[key] = [];
+                }
+                map[key].push(value);
+            });
+            return map;
+        }
+
+        function readMappingList(valueSelector) {
+            const list = [];
+            $(valueSelector).each((i, elem) => {
+                list.push($(elem).val());
+            });
+            return list;
+        }
+
+        function readSubRegionMappings() {
+            const subRegionMap = {};
+            $('.subregion-region').each((i, elem) => {
+                const region = $(elem).val();
+                const key = $('.subregion-key').eq(i).val();
+                const value = $('.subregion-value').eq(i).val();
+                if (!subRegionMap[region]) {
+                    subRegionMap[region] = {};
+                }
+                if (!subRegionMap[region][key]) {
+                    subRegionMap[region][key] = [];
+                }
+                subRegionMap[region][key].push(value);
+            });
+            return subRegionMap;
+        }
+
+        function readDateRules() {
+            const dateRules = [];
+            $('.date-keyword').each((i, elem) => {
+                const keyword = $(elem).val();
+                const startDate = $('.date-start').eq(i).val();
+                const durationMonths = $('.date-duration').eq(i).val();
+                if (keyword && startDate && durationMonths) {
+                    dateRules.push({ keyword, startDate, durationMonths: parseInt(durationMonths) });
+                }
+            });
+            return dateRules;
+        }
+
+        $(document).ready(() => {
+            renderMappings();
+        });
+
+        /******************** PROCESSING FUNCTIONS ********************/
+        
+        // (Existing processing functions remain unchanged...)
+
+    </script>
+</body>
+</html>
